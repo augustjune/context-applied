@@ -36,7 +36,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
     def valDef(name: String): Tree =
       ValDef(Modifiers(SYNTHETIC | ARTIFACT), TermName(name), Ident(TypeName("Int")), Literal(Constant(12)))
 
-    def injectTransformations(tree: Tree): Tree = {
+    def injectTransformations(tree: Tree, bounds: List[ContextBound]): Tree = {
       val res = tree match {
         case d @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
           rhs match {
@@ -62,8 +62,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
       val result = tree match {
         case ContextBounds(bounds) =>
           println(s"Discovered context bounds: $bounds")
-          println(s"Total tree: $tree")
-          super.transform(injectTransformations(tree))
+          super.transform(injectTransformations(tree, bounds))
         case _ => super.transform(tree)
       }
 
@@ -75,7 +74,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
   object ContextBounds {
     def unapply(tree: Tree): Option[List[ContextBound]] = tree match {
       case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
-        val tpars = tparams.collect { case TypeDef(_, TypeName(str), _, _) => str }
+        val tpars = tparams.collect { case TypeDef(_, tp, _, _) => tp }
         val evs = vparamss.lastOption.toList.flatMap { params => params.collect { case Evidence(e) => e } }
         val bounds = tpars.flatMap { s =>
           val imps = evs.filter(ev => ev.typ == s)
@@ -89,16 +88,16 @@ class ContextPlugin(plugin: Plugin, val global: Global)
     }
   }
 
-  case class ContextBound(typ: String, evs: List[Evidence])
+  case class ContextBound(typ: TypeName, evs: List[Evidence])
 
   object Evidence {
     def unapply(valDef: ValDef): Option[Evidence] = valDef match {
-      case ValDef(mods, TermName(variable), AppliedTypeTree(Ident(instanceType), List(Ident(TypeName(typ)))), _)
+      case ValDef(mods, TermName(variable), AppliedTypeTree(Ident(instanceType), List(Ident(typ @ TypeName(_)))), _)
         if mods.isImplicit => Some(Evidence(instanceType.decoded, typ, variable))
       case _ => None
     }
   }
 
-  case class Evidence(name: String, typ: String, variable: String)
+  case class Evidence(name: String, typ: TypeName, variable: String)
 
 }
