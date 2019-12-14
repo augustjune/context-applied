@@ -1,0 +1,4 @@
+<plugin>
+    <name>context-applied</name>
+    <classname>plugin.ContextApplied</classname>
+</plugin>
