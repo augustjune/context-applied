@@ -7,6 +7,7 @@ import nsc.plugins.PluginComponent
 import nsc.transform.Transform
 import nsc.transform.TypingTransformers
 import nsc.ast.TreeDSL
+import scala.reflect.internal.Flags._
 
 class ContextApplied(val global: Global) extends Plugin {
   val name = "context-applied"
@@ -32,12 +33,37 @@ class ContextPlugin(plugin: Plugin, val global: Global)
   class MyTransformer(unit: CompilationUnit) extends TypingTransformer(unit) {
     val global: ContextPlugin.this.global.type = ContextPlugin.this.global
 
+    def valDef(name: String): Tree =
+      ValDef(Modifiers(SYNTHETIC | ARTIFACT), TermName(name), Ident(TypeName("Int")), Literal(Constant(12)))
+
+    def injectTransformations(tree: Tree): Tree = {
+      val res = tree match {
+        case d @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+          rhs match {
+            case b @ Block(stats, expr) =>
+              println(s"Inserting F into $d")
+              val res = d.copy(rhs = b.copy(stats = valDef("F") :: stats))
+              println(s"Result looks like: $res")
+              res
+            case _ =>
+              println("rhs is not a block")
+              tree
+          }
+        case _ =>
+          println("Not DefDef")
+          tree
+      }
+
+      res
+    }
+
     // The transform method -- this is where the magic happens.
     override def transform(tree: Tree): Tree = {
       val result = tree match {
         case ContextBounds(bounds) =>
           println(s"Discovered context bounds: $bounds")
-          super.transform(tree)
+          println(s"Total tree: $tree")
+          super.transform(injectTransformations(tree))
         case _ => super.transform(tree)
       }
 
