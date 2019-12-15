@@ -108,16 +108,16 @@ class ContextPlugin(plugin: Plugin, val global: Global)
     def createTraits(bound: ContextBound): List[Tree] = {
       val trees = new ListBuffer[Tree]
 
-      val empty = TypeName("E$")
+      val empty = TypeName("E$" + bound.typ.decode)
       trees.append(defineEmptyTrait(empty))
 
       val lastParent = bound.evs.tail.foldRight(Option.empty[String]) { case (ev, parent) =>
-        val name = s"${ev.name.tpt}Conv"
+        val name = s"${ev.name.tpt}$$${bound.typ.decode}"
         trees.append(defineTrait(name, parent, defineImplicitConv(empty, ev.name, ev.variable)))
         Some(name)
       }
 
-      val moduleName = s"${bound.evs.head.name.tpt}Conv"
+      val moduleName = s"${bound.evs.head.name.tpt}$$${bound.typ.decode}"
       val module = defineObject(moduleName, lastParent, defineImplicitConv(empty, bound.evs.head.name, bound.evs.head.variable))
       trees.append(module)
 
@@ -129,46 +129,40 @@ class ContextPlugin(plugin: Plugin, val global: Global)
       trees.toList
     }
 
-    def injectTransformations(tree: Tree, bounds: List[ContextBound]): Tree = {
-      val res = tree match {
-        case d @ DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
-          rhs match {
-            case b: Block =>
-              val insert = bounds.flatMap(createTraits)
-              val res = d.copy(rhs = b.copy(stats = insert ::: b.stats))
-              println(s"Modified: $res")
-              res
-            case value =>
-              val insert = bounds.flatMap(createTraits)
-              val res = d.copy(rhs = Block(insert, value))
-              println(s"Modified literal rhs: $res")
-              res
-          }
-        case _ =>
-          println("Not DefDef")
-          tree
+    def containsDeclaration(s: String, trees: List[Tree]): Boolean =
+      trees.exists {
+        case ValOrDefDef(_, TermName(str), _, _) if str == s => true
+        case _ => false
       }
 
-      res
-    }
+    def injectTransformations(tree: Tree, bounds: List[ContextBound]): Tree =
+      tree match {
+        case d: DefDef =>
+          d.rhs match {
+            case b: Block =>
+              val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, b.stats ++ d.vparamss.flatten))
+              val insert = legalBounds.flatMap(createTraits)
+              d.copy(rhs = b.copy(stats = insert ::: b.stats))
 
-    // The transform method -- this is where the magic happens.
-    override def transform(tree: Tree): Tree = {
-      val result = tree match {
+            case value =>
+              val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, d.vparamss.flatten))
+              val insert = legalBounds.flatMap(createTraits)
+              d.copy(rhs = Block(insert, value))
+          }
+        case _ => tree
+      }
+
+    override def transform(tree: Tree): Tree =
+      tree match {
         case ContextBounds(bounds) =>
-          println(s"Discovered context bounds: $bounds")
           super.transform(injectTransformations(tree, bounds))
         case _ => super.transform(tree)
       }
-
-      // cache the result so we don't have to recompute it again later.
-      result
-    }
   }
 
   object ContextBounds {
     def unapply(tree: Tree): Option[List[ContextBound]] = tree match {
-      case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+      case DefDef(_, _, tparams, vparamss, _, _) =>
         val tpars = tparams.collect { case TypeDef(_, tp, _, _) => tp }
         val evs = vparamss.lastOption.toList.flatMap { params => params.collect { case Evidence(e) => e } }
         val bounds = tpars.flatMap { s =>
@@ -187,7 +181,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
   object Evidence {
     def unapply(valDef: ValDef): Option[Evidence] = valDef match {
-      case ValDef(mods, TermName(variable), ap @ AppliedTypeTree(Ident(instanceType), List(Ident(typ @ TypeName(_)))), _)
+      case ValDef(mods, TermName(variable), ap @ AppliedTypeTree(Ident(_), List(Ident(typ @ TypeName(_)))), _)
         if mods.isImplicit => Some(Evidence(ap, typ, variable))
       case _ => None
     }
