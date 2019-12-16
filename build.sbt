@@ -22,16 +22,8 @@ lazy val core = project
       "-deprecation",
       "-unchecked"
     ),
-    Test / scalacOptions ++= {
-      val jar = (Compile / packageBin).value
-      Seq(s"-Xplugin:${jar.getAbsolutePath}", s"-Jdummy=${jar.lastModified}") // ensures recompile
-    },
-    Test / scalacOptions += "-Yrangepos",
     console / initialCommands := "import plugin._",
-    Compile / console / scalacOptions := Seq("-language:_", "-Xplugin:" + (Compile / packageBin).value),
-    Test / console / scalacOptions := (Compile / console / scalacOptions).value,
-    Test / fork := true,
-    //Test / scalacOptions ++= Seq("-Xprint:typer", "-Xprint-pos"), // Useful for debugging
+    Compile / console / scalacOptions := Seq("-language:_", "-Xplugin:" + (Compile / packageBin).value)
   )
 
 lazy val test = project
@@ -40,7 +32,6 @@ lazy val test = project
   .settings(
     skip.in(publish) := true,
     projectSettings,
-    libraryDependencies += "org.typelevel" %% "cats-core" % "2.0.0",
     scalacOptions ++= {
       val jar = (core / Compile / packageBin).value
       Seq(s"-Xplugin:${jar.getAbsolutePath}", s"-Jdummy=${jar.lastModified}") // ensures recompile

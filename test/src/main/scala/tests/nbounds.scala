@@ -1,7 +1,5 @@
 package tests
 
-import cats.{Monad, Traverse}
-
 object nbounds {
 
   def combined[F[_]: Monad: Traverse] = {
