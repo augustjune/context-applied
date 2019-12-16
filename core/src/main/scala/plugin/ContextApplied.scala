@@ -35,11 +35,11 @@ class ContextPlugin(plugin: Plugin, val global: Global)
     val global: ContextPlugin.this.global.type = ContextPlugin.this.global
 
     def nullVal(name: String, typeName: TypeName): Tree =
-      ValDef(Modifiers(), TermName(name), Ident(typeName), Literal(Constant(null)))
+      ValDef(Modifiers(SYNTHETIC | ARTIFACT), TermName(name), Ident(typeName), Literal(Constant(null)))
 
     def defineTrait(name: String, parent: Option[String], inside: DefDef): Tree =
       ClassDef(
-        Modifiers(ABSTRACT | DEFAULTPARAM / TRAIT),
+        Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | DEFAULTPARAM / TRAIT),
         TypeName(name),
         List(),
         Template(List(Ident(TypeName(parent.getOrElse("AnyRef")))), noSelfType, List(traitInit, inside))
@@ -47,18 +47,18 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
     def defineEmptyTrait(tpName: TypeName): Tree =
       ClassDef(
-        Modifiers(ABSTRACT | INTERFACE | DEFAULTPARAM / TRAIT),
+        Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | INTERFACE | DEFAULTPARAM / TRAIT),
         tpName,
         List(),
         Template(List(Ident(TypeName("AnyRef"))), noSelfType, List())
       )
 
     def traitInit: DefDef =
-      DefDef(Modifiers(), termNames.MIXIN_CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(), Literal(Constant(()))))
+      DefDef(Modifiers(SYNTHETIC | ARTIFACT), termNames.MIXIN_CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(), Literal(Constant(()))))
 
     def defineObject(name: String, parent: Option[String], inside: DefDef): ModuleDef =
       ModuleDef(
-        Modifiers(),
+        Modifiers(SYNTHETIC | ARTIFACT),
         TermName(name),
         Template(
           List(Ident(TypeName(parent.getOrElse("AnyRef")))),
@@ -69,7 +69,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
     def moduleInit(parent: Boolean): DefDef =
       DefDef(
-        Modifiers(),
+        Modifiers(SYNTHETIC | ARTIFACT),
         termNames.CONSTRUCTOR,
         List(),
         List(List()),
@@ -97,10 +97,10 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
     def defineImplicitConv(fromT: TypeName, resT: TypTree, resV: String): DefDef =
       DefDef(
-        Modifiers(IMPLICIT),
+        Modifiers(IMPLICIT | SYNTHETIC | ARTIFACT),
         TermName(s"${fromT}_$resT"),
         List(),
-        List(List(ValDef(Modifiers(PARAM), TermName("e"), Ident(fromT), EmptyTree))),
+        List(List(ValDef(Modifiers(PARAM | SYNTHETIC | ARTIFACT), TermName("e"), Ident(fromT), EmptyTree))),
         resT,
         Ident(TermName(resV))
       )
