@@ -1,6 +1,6 @@
 package tests
 
-object avoid {
+object ignore {
 
   def declarations[F[_] : Console, G[_] : Console] = {
     val F = "Sda"

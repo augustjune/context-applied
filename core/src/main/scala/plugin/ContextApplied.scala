@@ -152,12 +152,30 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         case _ => tree
       }
 
+    var inVclass: Boolean = false
+
     override def transform(tree: Tree): Tree =
       tree match {
+        case VClass(_) =>
+          // Seems like a horrible thing to do. Will wait until the first complain with a broken codebase
+          inVclass = true
+          val t = super.transform(tree)
+          inVclass = false
+          t
         case ContextBounds(bounds) =>
-          super.transform(injectTransformations(tree, bounds))
+          if (inVclass) super.transform(tree)
+          else super.transform(injectTransformations(tree, bounds))
         case _ => super.transform(tree)
       }
+  }
+
+  object VClass {
+    def unapply(tree: Tree): Option[Unit] = tree match {
+      case ClassDef(_, _, _, Template(parents, _, _))
+        if parents.exists { case Ident(TypeName(str)) => str == "AnyVal"; case _ => false } => Some(())
+
+      case _ => None
+    }
   }
 
   object ContextBounds {
