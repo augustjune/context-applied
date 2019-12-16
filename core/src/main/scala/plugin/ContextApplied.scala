@@ -42,7 +42,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | DEFAULTPARAM / TRAIT),
         TypeName(name),
         List(),
-        Template(List(Ident(TypeName(parent.getOrElse("AnyRef")))), noSelfType, List(traitInit, inside))
+        Template(List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))), noSelfType, List(traitInit, inside))
       )
 
     def defineEmptyTrait(tpName: TypeName): Tree =
@@ -50,7 +50,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | INTERFACE | DEFAULTPARAM / TRAIT),
         tpName,
         List(),
-        Template(List(Ident(TypeName("AnyRef"))), noSelfType, List())
+        Template(List(Ident(tpnme.AnyRef)), noSelfType, List())
       )
 
     def traitInit: DefDef =
@@ -61,7 +61,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         Modifiers(SYNTHETIC | ARTIFACT),
         TermName(name),
         Template(
-          List(Ident(TypeName(parent.getOrElse("AnyRef")))),
+          List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))),
           noSelfType,
           List(moduleInit(parent.isDefined), inside)
         )
@@ -172,7 +172,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
   object VClass {
     def unapply(tree: Tree): Option[Unit] = tree match {
       case ClassDef(_, _, _, Template(parents, _, _))
-        if parents.exists { case Ident(TypeName(str)) => str == "AnyVal"; case _ => false } => Some(())
+        if parents.exists { case Ident(tpnme.AnyVal) => true; case _ => false } => Some(())
 
       case _ => None
     }
