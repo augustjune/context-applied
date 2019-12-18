@@ -32,11 +32,11 @@ lazy val test = project
   .settings(
     skip.in(publish) := true,
     projectSettings,
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
     scalacOptions ++= {
       val jar = (core / Compile / packageBin).value
       Seq(s"-Xplugin:${jar.getAbsolutePath}", s"-Jdummy=${jar.lastModified}") // ensures recompile
     },
-
     scalacOptions ++= Seq(
       "-Xfatal-warnings",
       "-language:higherKinds",

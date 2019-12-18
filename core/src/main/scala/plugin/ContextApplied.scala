@@ -23,10 +23,12 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
   val runsAfter = List("parser")
   override val runsBefore = List("namer")
-  val phaseName = "context-applied"
 
-  lazy val useAsciiNames: Boolean =
-    System.getProperty("kp:genAsciiNames") == "true"
+  /**
+   * Name of the phase starts with 'x' to make it run
+   * after kind-projector phase if such exists
+   */
+  val phaseName = "xcontext-applied"
 
   def newTransformer(unit: CompilationUnit): MyTransformer =
     new MyTransformer(unit)
@@ -199,7 +201,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
   object Evidence {
     def unapply(valDef: ValDef): Option[Evidence] = valDef match {
-      case ValDef(mods, TermName(variable), ap @ AppliedTypeTree(Ident(_), List(Ident(typ @ TypeName(_)))), _)
+      case ValDef(mods, TermName(variable), ap @ AppliedTypeTree(_, List(Ident(typ @ TypeName(_)))), _)
         if mods.isImplicit => Some(Evidence(ap, typ, variable))
       case _ => None
     }
