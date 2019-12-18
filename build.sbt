@@ -4,7 +4,8 @@ lazy val `context-applied` = project
   .aggregate(core, test)
   .settings(
     skip.in(publish) := true,
-    projectSettings
+    projectSettings,
+    crossScalaVersions := Nil
   )
 
 lazy val core = project
@@ -59,5 +60,6 @@ lazy val projectSettings = Seq(
   developers := List(
     Developer("augustjune", "Yura Slinkin", "jurij.jurich@gmail.com", url("https://github.com/augustjune"))
   ),
-  scalaVersion := "2.13.0"
+  scalaVersion := "2.13.0",
+  crossScalaVersions := Seq(scalaVersion.value, "2.12.10")
 )
