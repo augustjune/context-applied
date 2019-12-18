@@ -1,5 +1,8 @@
 package tests
 
+/**
+ * Checks if the plugin provides the syntax for the nested functions
+ */
 object nested {
 
   implicit val listFunctor: Functor[List] = new Functor[List] {

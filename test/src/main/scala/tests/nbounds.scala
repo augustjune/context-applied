@@ -1,5 +1,8 @@
 package tests
 
+/**
+ * Checks if the plugin is able to handle more than one algebra
+ */
 object nbounds {
 
   def combined[F[_]: Monad: Traverse] = {

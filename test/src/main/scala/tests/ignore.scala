@@ -1,5 +1,8 @@
 package tests
 
+/**
+ * Checks if the plugin ignores the cases when it shouldn't be applied
+ */
 object ignore {
 
   def declarations[F[_] : Console, G[_] : Console] = {
