@@ -12,7 +12,6 @@ lazy val core = project
   .in(file("core"))
   .settings(
     name := "context-applied",
-    version := "0.4-SNAPSHOT",
     projectSettings,
     libraryDependencies += scalaOrganization.value % "scala-compiler" % scalaVersion.value,
     scalacOptions ++= Seq(
