@@ -12,7 +12,7 @@ import scala.reflect.internal.Flags._
 
 class ContextApplied(val global: Global) extends Plugin {
   val name = "context-applied"
-  val description = "Apply your context"
+  val description = "May the F be with you"
   val components = List(new ContextPlugin(this, global))
 }
 
