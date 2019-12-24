@@ -41,35 +41,13 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
     def defineTrait(name: String, parent: Option[String], inside: DefDef): Tree =
       ClassDef(
-        Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | DEFAULTPARAM / TRAIT),
+        Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT),
         TypeName(name),
         List(),
-        Template(List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))), noSelfType, List(traitInit, inside))
+        Template(List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))), noSelfType, List(constructor, inside))
       )
 
-    def defineEmptyTrait(tpName: TypeName): Tree =
-      ClassDef(
-        Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | INTERFACE | DEFAULTPARAM / TRAIT),
-        tpName,
-        List(),
-        Template(List(Ident(tpnme.AnyRef)), noSelfType, List())
-      )
-
-    def traitInit: DefDef =
-      DefDef(Modifiers(SYNTHETIC | ARTIFACT), termNames.MIXIN_CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(), Literal(Constant(()))))
-
-    def defineObject(name: String, parent: Option[String], inside: DefDef): ModuleDef =
-      ModuleDef(
-        Modifiers(SYNTHETIC | ARTIFACT),
-        TermName(name),
-        Template(
-          List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))),
-          noSelfType,
-          List(moduleInit(parent.isDefined), inside)
-        )
-      )
-
-    def moduleInit(parent: Boolean): DefDef =
+    def constructor: DefDef =
       DefDef(
         Modifiers(SYNTHETIC | ARTIFACT),
         termNames.CONSTRUCTOR,
@@ -84,8 +62,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
                   This(typeNames.EMPTY),
                   typeNames.EMPTY
                 ),
-                if (parent) termNames.MIXIN_CONSTRUCTOR
-                else termNames.CONSTRUCTOR
+                termNames.CONSTRUCTOR
               ),
               List()
             )
@@ -94,13 +71,32 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         )
       )
 
+    def defineEmptyTrait(tpName: TypeName): Tree =
+      ClassDef(
+        Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | INTERFACE | DEFAULTPARAM / TRAIT),
+        tpName,
+        List(),
+        Template(List(Ident(tpnme.AnyRef)), noSelfType, List())
+      )
+
+    def defineObject(name: String, parent: Option[String], inside: DefDef): ModuleDef =
+      ModuleDef(
+        Modifiers(SYNTHETIC | ARTIFACT),
+        TermName(name),
+        Template(
+          List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))),
+          noSelfType,
+          List(constructor, inside)
+        )
+      )
+
     def importModule(name: String): Tree =
       Import(Ident(TermName(name)), List(ImportSelector.wild))
 
-    def defineImplicitConv(fromT: TypeName, resT: TypTree, resV: String): DefDef =
+    def defineImplicitConv(fromT: TypeName, resT: AppliedTypeTree, resV: String): DefDef =
       DefDef(
         Modifiers(IMPLICIT | SYNTHETIC | ARTIFACT),
-        TermName(s"${fromT}_$resT"),
+        TermName(s"${fromT}_${resT.tpt}"),
         List(),
         List(List(ValDef(Modifiers(PARAM | SYNTHETIC | ARTIFACT), TermName("e"), Ident(fromT), EmptyTree))),
         resT,
