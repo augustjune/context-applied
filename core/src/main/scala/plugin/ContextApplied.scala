@@ -147,6 +147,12 @@ class ContextPlugin(plugin: Plugin, val global: Global)
               val insert = legalBounds.flatMap(createTraits)
               d.copy(rhs = Block(insert, value))
           }
+
+        case d @ ClassDef(_, _, _, Template(_, _, body)) =>
+          val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, body))
+          val insert = legalBounds.flatMap(createTraits)
+          d.copy(impl = d.impl.copy(body = insert ::: body))
+
         case _ => tree
       }
 
@@ -189,6 +195,17 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         if (bounds.isEmpty) None
         else Some(bounds)
 
+      case ClassDef(_, _, tparams, Template(_, _, body)) =>
+        val tpars = tparams.collect { case TypeDef(_, tp, _, _) => tp }
+        val evs = body.collect { case Evidence(e) => e }
+        val bounds = tpars.flatMap { s =>
+          val imps = evs.filter(ev => ev.typ == s)
+          if (imps.isEmpty) List()
+          else List(ContextBound(s, imps))
+        }
+        if (bounds.isEmpty) None
+        else Some(bounds)
+
       case _ => None
     }
   }
@@ -196,7 +213,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
   case class ContextBound(typ: TypeName, evs: List[Evidence])
 
   object Evidence {
-    def unapply(valDef: ValDef): Option[Evidence] = valDef match {
+    def unapply(valDef: Tree): Option[Evidence] = valDef match {
       case ValDef(mods, TermName(variable), ap @ AppliedTypeTree(_, List(Ident(typ @ TypeName(_)))), _)
         if mods.isImplicit => Some(Evidence(ap, typ, variable))
       case _ => None
