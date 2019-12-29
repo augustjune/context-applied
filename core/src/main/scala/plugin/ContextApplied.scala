@@ -36,10 +36,11 @@ class ContextPlugin(plugin: Plugin, val global: Global)
   class MyTransformer(unit: CompilationUnit) extends TypingTransformer(unit) {
     val global: ContextPlugin.this.global.type = ContextPlugin.this.global
 
-    def nullVal(name: String, typeName: TypeName): Tree =
-      ValDef(Modifiers(SYNTHETIC | ARTIFACT), TermName(name), Ident(typeName), Literal(Constant(null)))
+    private def nullVal(name: String, typeName: TypeName, clastag: Boolean): Tree =
+      if (clastag) ValDef(Modifiers(PRIVATE | LOCAL | SYNTHETIC | ARTIFACT), TermName(name), Ident(typeName), Literal(Constant(null)))
+      else ValDef(Modifiers(SYNTHETIC | ARTIFACT), TermName(name), Ident(typeName), Literal(Constant(null)))
 
-    def defineTrait(name: String, parent: Option[String], inside: DefDef): Tree =
+    private def defineTrait(name: String, parent: Option[String], inside: DefDef): Tree =
       ClassDef(
         Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT),
         TypeName(name),
@@ -47,7 +48,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         Template(List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))), noSelfType, List(constructor, inside))
       )
 
-    def constructor: DefDef =
+    private def constructor: DefDef =
       DefDef(
         Modifiers(SYNTHETIC | ARTIFACT),
         termNames.CONSTRUCTOR,
@@ -71,17 +72,19 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         )
       )
 
-    def defineEmptyTrait(tpName: TypeName): Tree =
+    private def defineEmptyTrait(tpName: TypeName, inclass: Boolean): Tree =
       ClassDef(
-        Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | INTERFACE | DEFAULTPARAM / TRAIT),
+        if (inclass) Modifiers(ABSTRACT | INTERFACE | LOCAL | DEFAULTPARAM/TRAIT)
+        else Modifiers(SYNTHETIC | ARTIFACT | ABSTRACT | INTERFACE | DEFAULTPARAM / TRAIT),
         tpName,
         List(),
         Template(List(Ident(tpnme.AnyRef)), noSelfType, List())
       )
 
-    def defineObject(name: String, parent: Option[String], inside: DefDef): ModuleDef =
+    private def defineObject(name: String, parent: Option[String], inside: DefDef, inclass: Boolean): ModuleDef =
       ModuleDef(
-        Modifiers(SYNTHETIC | ARTIFACT),
+        if (inclass) Modifiers(PRIVATE | LOCAL | SYNTHETIC | ARTIFACT)
+        else Modifiers(SYNTHETIC | ARTIFACT),
         TermName(name),
         Template(
           List(Ident(parent.map(TypeName(_)).getOrElse(tpnme.AnyRef))),
@@ -90,10 +93,10 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         )
       )
 
-    def importModule(name: String): Tree =
+    private def importModule(name: String): Tree =
       Import(Ident(TermName(name)), List(ImportSelector.wild))
 
-    def defineImplicitConv(fromT: TypeName, resT: AppliedTypeTree, resV: String): DefDef =
+    private def defineImplicitConv(fromT: TypeName, resT: AppliedTypeTree, resV: String): DefDef =
       DefDef(
         Modifiers(IMPLICIT | SYNTHETIC | ARTIFACT),
         TermName(s"${fromT}_${resT.tpt}"),
@@ -103,11 +106,11 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         Ident(TermName(resV))
       )
 
-    def createTraits(bound: ContextBound): List[Tree] = {
+    private def createTraits(bound: ContextBound, inclass: Boolean): List[Tree] = {
       val trees = new ListBuffer[Tree]
 
       val empty = TypeName("E$" + bound.typ.decode)
-      trees.append(defineEmptyTrait(empty))
+      trees.append(defineEmptyTrait(empty, inclass))
 
       val lastParent = bound.evs.tail.foldRight(Option.empty[String]) { case (ev, parent) =>
         val name = s"${ev.name.tpt}$$${bound.typ.decode}"
@@ -116,47 +119,55 @@ class ContextPlugin(plugin: Plugin, val global: Global)
       }
 
       val moduleName = s"${bound.evs.head.name.tpt}$$${bound.typ.decode}"
-      val module = defineObject(moduleName, lastParent, defineImplicitConv(empty, bound.evs.head.name, bound.evs.head.variable))
+      val module = defineObject(moduleName, lastParent, defineImplicitConv(empty, bound.evs.head.name, bound.evs.head.variable), inclass)
       trees.append(module)
 
       val imp = importModule(moduleName)
       trees.append(imp)
 
-      trees.append(nullVal(bound.typ.decode, empty))
+      trees.append(nullVal(bound.typ.decode, empty, inclass))
 
       trees.toList
     }
 
-    def containsDeclaration(s: String, trees: List[Tree]): Boolean =
+    private def containsDeclaration(s: String, trees: List[Tree]): Boolean =
       trees.exists {
         case ValOrDefDef(_, TermName(str), _, _) if str == s => true
         case _ => false
       }
 
-    def injectTransformations(tree: Tree, bounds: List[ContextBound]): Tree =
+    private def injectTransformations(tree: Tree, bounds: List[ContextBound]): Tree =
       tree match {
         case d: DefDef =>
           d.rhs match {
             case b: Block =>
               val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, b.stats ++ d.vparamss.flatten))
-              val insert = legalBounds.flatMap(createTraits)
+              val insert = legalBounds.flatMap(createTraits(_, inclass = false))
               d.copy(rhs = b.copy(stats = insert ::: b.stats))
 
             case value =>
               val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, d.vparamss.flatten))
-              val insert = legalBounds.flatMap(createTraits)
+              val insert = legalBounds.flatMap(createTraits(_, inclass = false))
               d.copy(rhs = Block(insert, value))
           }
 
         case d @ ClassDef(_, _, _, Template(_, _, body)) =>
           val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, body))
-          val insert = legalBounds.flatMap(createTraits)
-          d.copy(impl = d.impl.copy(body = insert ::: body))
+          val insert = legalBounds.flatMap(createTraits(_, inclass = true))
+          val updatedBody = insertAfterConstructor(body, insert)
+          d.copy(impl = d.impl.copy(body = updatedBody))
 
         case _ => tree
       }
 
-    var inVclass: Boolean = false
+    private def insertAfterConstructor(body: List[Tree], insert: List[Tree]): List[Tree] =
+      body match {
+        case DefDef(_, termNames.CONSTRUCTOR, _, _, _, _) :: t => body.head :: insert ::: t
+        case h :: t => h :: insertAfterConstructor(t, insert)
+        case Nil => insert
+      }
+
+    private var inVclass: Boolean = false
 
     override def transform(tree: Tree): Tree =
       tree match {
@@ -187,27 +198,29 @@ class ContextPlugin(plugin: Plugin, val global: Global)
       case DefDef(_, _, tparams, vparamss, _, _) =>
         val tpars = tparams.collect { case TypeDef(_, tp, _, _) => tp }
         val evs = vparamss.lastOption.toList.flatMap { params => params.collect { case Evidence(e) => e } }
-        val bounds = tpars.flatMap { s =>
-          val imps = evs.filter(ev => ev.typ == s)
-          if (imps.isEmpty) List()
-          else List(ContextBound(s, imps))
-        }
+
+        val bounds = matchBounds(tpars, evs)
         if (bounds.isEmpty) None
         else Some(bounds)
 
       case ClassDef(_, _, tparams, Template(_, _, body)) =>
         val tpars = tparams.collect { case TypeDef(_, tp, _, _) => tp }
         val evs = body.collect { case Evidence(e) => e }
-        val bounds = tpars.flatMap { s =>
-          val imps = evs.filter(ev => ev.typ == s)
-          if (imps.isEmpty) List()
-          else List(ContextBound(s, imps))
-        }
+
+        val bounds = matchBounds(tpars, evs)
         if (bounds.isEmpty) None
         else Some(bounds)
 
       case _ => None
     }
+
+    private def matchBounds(tpars: List[TypeName], evidences: List[Evidence]): List[ContextBound] =
+      tpars.flatMap { s =>
+        val imps = evidences.filter(ev => ev.typ == s)
+        if (imps.isEmpty) List()
+        else List(ContextBound(s, imps))
+      }
+
   }
 
   case class ContextBound(typ: TypeName, evs: List[Evidence])
