@@ -13,7 +13,7 @@ Example:
 def fn[F[_]: Monad]: F[Int] = F.pure(12)
 ``` 
 
-This scales across the multiple contexts as well as the multiple type parameters:
+This scales across multiple contexts as well as multiple type parameters:
 ```scala
 def fn[F[_]: Applicative: Traverse, G[_]: Applicative]: G[F[Int]] = 
   F.traverse(F.pure(""))(s => G.pure(s.size))
@@ -24,11 +24,13 @@ def fn[F[_]: Applicative: Traverse, G[_]: Applicative]: G[F[Int]] =
 In fact it is achieved by introducing implicit conversions to the 
 appropriate value from the implicit scope. 
 
-Roughly speaking, you can act like you have a value of mixed-in
- type of the contexts named after the type parameter: 
+Roughly speaking, you can pretend like you have a value named after the type parameter 
+of the type that combines specified contexts: 
 ```scala
 def fn[A: B: C: D] = {
-  val A: B[A] with C[A] with D[A] = ???   // This value is given to you by the plugin
+  val A: B[A] with C[A] with D[A] = ???
+
+// In reality A can be either B[A] or C[A] or D[A] in a particular moment
 }
 ```
 
@@ -47,7 +49,7 @@ addCompilerPlugin("org.augustjune" %% "context-applied" % "0.1.1")
       def write(s: String): F[Unit]
     }
     
-    def reply[F[_]: Console: Monad]: F[String] =
+    def reply[F[_]: Console: FlatMap]: F[String] =
       for {
         s <- F.read
         _ <- F.write(s)
@@ -75,7 +77,7 @@ addCompilerPlugin("org.augustjune" %% "context-applied" % "0.1.1")
 ### Supported features
 1. Kind-projector support.
    ```scala
-   def fn[F[_]: ApplicativeError[*[_], Throwable]]: F[Int] = 
+   def fn[F[_]: ApplicativeError[*[_], Throwable]]: F[Nothing] = 
      F.raiseError(new RuntimeException)
    ```
 1. Type parameters of any kinds. 
@@ -104,7 +106,8 @@ addCompilerPlugin("org.augustjune" %% "context-applied" % "0.1.1")
 Since **context-applied** introduces additional syntax to your program 
 it is important not to break any existing code or change its meaning.
 For this reason there are cases when the plugin 
-just gracefully skips parts of the program:
+just gracefully skips parts of the program.
+It happens when:
 
 1. Name of type parameter is already taken.
     ```scala
