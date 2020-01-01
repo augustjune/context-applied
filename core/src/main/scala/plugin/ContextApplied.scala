@@ -44,6 +44,11 @@ class ContextPlugin(plugin: Plugin, val global: Global)
           val t = super.transform(tree)
           inVclass = false
           t
+
+        case DefDef(mods, _, _, _, _, _)
+          if mods.isDeferred =>
+          super.transform(tree)
+
         case ContextBounds(bounds) =>
           if (inVclass) super.transform(tree)
           else super.transform(injectComponents(tree, bounds))
