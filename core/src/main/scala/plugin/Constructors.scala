@@ -72,10 +72,10 @@ trait Constructors {
    * @param resT  Return type
    * @param resV  Constant value to be returned.
    */
-  def newImplicitConversion(fromT: TypeName, resT: AppliedTypeTree, resV: String): DefDef =
+  def newImplicitConversion(fromT: TypeName, resultTypeName: String, resT: AppliedTypeTree, resV: String): DefDef =
     DefDef(
       Modifiers(IMPLICIT | SYNTHETIC | ARTIFACT),
-      TermName(s"${fromT}_${resT.tpt}"),
+      TermName(s"$fromT$$$resultTypeName"),
       List(),
       List(List(ValDef(Modifiers(PARAM | SYNTHETIC | ARTIFACT), TermName("e"), Ident(fromT), EmptyTree))),
       resT,

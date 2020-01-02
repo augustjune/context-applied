@@ -35,6 +35,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
   class MyTransformer(unit: CompilationUnit) extends TypingTransformer(unit) with Extractors with Constructors {
     val global: ContextPlugin.this.global.type = ContextPlugin.this.global
     private var inVclass: Boolean = false
+    private var resultTypeLambdas = 0L
 
     override def transform(tree: Tree): Tree =
       tree match {
@@ -92,13 +93,15 @@ class ContextPlugin(plugin: Plugin, val global: Global)
       trees.append(newEmptyTrait(empty, inclass))
 
       val lastParent = bound.evs.tail.foldRight(Option.empty[String]) { case (ev, parent) =>
-        val name = s"${ev.name.tpt}$$${bound.typ.decode}"
-        trees.append(newAbstractClass(name, parent, newImplicitConversion(empty, ev.name, ev.variable), inclass))
+        val resTName = resultTypeName(ev.tree.tpt)
+        val name = s"$resTName$$${bound.typ.decode}"
+        trees.append(newAbstractClass(name, parent, newImplicitConversion(empty, resTName, ev.tree, ev.variable), inclass))
         Some(name)
       }
 
-      val moduleName = s"${bound.evs.head.name.tpt}$$${bound.typ.decode}"
-      val module = newObject(moduleName, lastParent, newImplicitConversion(empty, bound.evs.head.name, bound.evs.head.variable), inclass)
+      val resTName = resultTypeName(bound.evs.head.tree.tpt)
+      val moduleName = s"$resTName$$${bound.typ.decode}"
+      val module = newObject(moduleName, lastParent, newImplicitConversion(empty, resTName, bound.evs.head.tree, bound.evs.head.variable), inclass)
       trees.append(module)
 
       val imp = importModule(moduleName)
@@ -108,6 +111,21 @@ class ContextPlugin(plugin: Plugin, val global: Global)
 
       trees.toList
     }
+
+    /**
+     * Solves the problem with the name of applied type tree constructed using type lambda.
+     * For example, following type name will be simplified to meet the requirements of scala naming:
+     * {{{scala.AnyRef {
+     *     type ?[T[_]] = Console2[T, List]
+     *   }#?[F]
+     * }}}
+     */
+    private def resultTypeName(t: Tree): String =
+      if (!t.toString.contains("{")) t.toString
+      else {
+        resultTypeLambdas += 1
+        s"TLambda$resultTypeLambdas"
+      }
 
     private def nullVal(name: String, typeName: TypeName, inclass: Boolean): Tree =
       if (inclass) ValDef(Modifiers(PRIVATE | LOCAL | SYNTHETIC | ARTIFACT), TermName(name), Ident(typeName), Literal(Constant(null)))
@@ -123,4 +141,5 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         case Nil => insert
       }
   }
+
 }
