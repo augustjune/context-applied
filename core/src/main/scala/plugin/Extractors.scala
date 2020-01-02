@@ -10,7 +10,7 @@ trait Extractors {
   case class ContextBound(typ: TypeName, evs: List[Evidence])
 
   //Evidence(Traverse[A],A,evidence$5)
-  case class Evidence(name: AppliedTypeTree, typ: TypeName, variable: String)
+  case class Evidence(tree: AppliedTypeTree, typ: TypeName, variable: String)
 
   object VClass {
     /**

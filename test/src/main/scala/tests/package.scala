@@ -23,4 +23,6 @@ package object tests {
 
     def read: F[String]
   }
+
+  trait Trace[F[_], A]
 }
