@@ -30,7 +30,7 @@ lazy val test = project
   .settings(
     skip.in(publish) := true,
     projectSettings,
-    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
+    addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.0" cross CrossVersion.full),
     scalacOptions ++= {
       val jar = (core / Compile / packageBin).value
       Seq(s"-Xplugin:${jar.getAbsolutePath}", s"-Jdummy=${jar.lastModified}") // ensures recompile
@@ -58,6 +58,6 @@ lazy val projectSettings = Seq(
   developers := List(
     Developer("augustjune", "Yura Slinkin", "jurij.jurich@gmail.com", url("https://github.com/augustjune"))
   ),
-  scalaVersion := "2.13.0",
+  scalaVersion := "2.13.1",
   crossScalaVersions := Seq(scalaVersion.value, "2.12.10", "2.11.12")
 )

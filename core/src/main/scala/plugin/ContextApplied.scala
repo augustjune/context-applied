@@ -62,18 +62,18 @@ class ContextPlugin(plugin: Plugin, val global: Global)
           d.rhs match {
             case b: Block =>
               val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, b.stats ++ d.vparamss.flatten))
-              val insert = legalBounds.flatMap(createComponents(_, inclass = false))
+              val insert = legalBounds.flatMap(createComponents(_, inclass = false, None))
               d.copy(rhs = b.copy(stats = insert ::: b.stats))
 
             case value =>
               val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, d.vparamss.flatten))
-              val insert = legalBounds.flatMap(createComponents(_, inclass = false))
+              val insert = legalBounds.flatMap(createComponents(_, inclass = false, None))
               d.copy(rhs = Block(insert, value))
           }
 
-        case d @ ClassDef(_, _, _, Template(_, _, body)) =>
+        case d @ ClassDef(_, name, _, Template(_, _, body)) =>
           val legalBounds = bounds.filterNot(cb => containsDeclaration(cb.typ.decode, body))
-          val insert = legalBounds.flatMap(createComponents(_, inclass = true))
+          val insert = legalBounds.flatMap(createComponents(_, inclass = true, className = Some(name.decode)))
           val updatedBody = insertAfterConstructor(body, insert)
           d.copy(impl = d.impl.copy(body = updatedBody))
 
@@ -86,10 +86,10 @@ class ContextPlugin(plugin: Plugin, val global: Global)
         case _ => false
       }
 
-    private def createComponents(bound: ContextBound, inclass: Boolean): List[Tree] = {
+    private def createComponents(bound: ContextBound, inclass: Boolean, className: Option[String]): List[Tree] = {
       val trees = new ListBuffer[Tree]
 
-      val empty = TypeName("E$" + bound.typ.decode)
+      val empty = TypeName(s"E$$${bound.typ.decode}$$${className.getOrElse("Def")}")
       trees.append(newEmptyTrait(empty, inclass))
 
       val lastParent = bound.evs.tail.foldRight(Option.empty[String]) { case (ev, parent) =>
