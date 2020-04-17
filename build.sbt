@@ -31,6 +31,7 @@ lazy val test = project
     skip.in(publish) := true,
     projectSettings,
     addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.0" cross CrossVersion.full),
+    libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % Test,
     scalacOptions ++= {
       val jar = (core / Compile / packageBin).value
       Seq(s"-Xplugin:${jar.getAbsolutePath}", s"-Jdummy=${jar.lastModified}") // ensures recompile

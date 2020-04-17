@@ -11,7 +11,7 @@ object dotnotation {
     type Aux[T0] = Witness { type T = T0 }
   }
 
-  class SomeClass[A <: String: Witness.Aux] {
-    def fn: String = A.value
+  class SomeClass[A <: Unit: Witness.Aux] {
+    def fn: Unit = A.value
   }
 }
