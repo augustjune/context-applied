@@ -25,4 +25,6 @@ package object tests {
   }
 
   trait Trace[F[_], A]
+
+  trait Monoid[A]
 }

@@ -121,7 +121,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
      * }}}
      */
     private def resultTypeName(t: Tree): String =
-      if (!t.toString.contains("{")) t.toString
+      if (!t.toString.contains("{")) t.toString.replace(".", "")
       else {
         resultTypeLambdas += 1
         s"TLambda$resultTypeLambdas"
