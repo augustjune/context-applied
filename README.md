@@ -37,7 +37,7 @@ def fn[A: B: C: D] = {
 ### Usage
 Plugin is available for Scala 2.11, 2.12 and 2.13.
 ```scala
-addCompilerPlugin("org.augustjune" %% "context-applied" % "0.1.3")
+addCompilerPlugin("org.augustjune" %% "context-applied" % "0.1.4")
 ```
 
 ### Use cases
