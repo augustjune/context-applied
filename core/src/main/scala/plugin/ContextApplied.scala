@@ -132,7 +132,7 @@ class ContextPlugin(plugin: Plugin, val global: Global)
       else ValDef(Modifiers(SYNTHETIC | ARTIFACT), TermName(name), Ident(typeName), Literal(Constant(null)))
 
     private def importModule(name: String): Tree =
-      Import(Ident(TermName(name)), List(ImportSelector.wild))
+      Import(Ident(TermName(name)), ImportSelector.wildList)
 
     private def insertAfterConstructor(body: List[Tree], insert: List[Tree]): List[Tree] =
       body match {
